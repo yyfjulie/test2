@@ -1,6 +1,6 @@
 ﻿#ch1 algae exercise
 head(algae)
-
+#pull request test
 hist(algae$mxPH, prob = T)
 #1. basic exploration——function——summary、hist、boxplot
 
