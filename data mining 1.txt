@@ -1,0 +1,207 @@
+﻿#ch1 algae exercise
+
+hist(algae$mxPH, prob = T)
+#1. basic exploration——function——summary、hist、boxplot
+
+#1.1 hist
+ library(car)
+ par(mfrow=c(1,2)) #调整画布--1行2列模式
+  hist(algae$mxPH, prob=T, xlab='',
+        main='Histogram of maximum pH value',ylim=0:1)
+    lines(density(algae$mxPH,na.rm=T)) #画分布曲线
+    rug(jitter(algae$mxPH)) # 底下那个竖条条---看outlier——plots the real values of the variable near the X-axis, thus allowing easy spotting of outliers.12 For instance, we can observe that there are two values significantly smaller than all others.
+  qqPlot(algae$mxPH,main='Normal QQ plot of maximum pH')
+ par(mfrow=c(1,1)) #把画布调回来
+ 
+ #1.2 boxplot
+ boxplot(algae$oPO4, ylab = "Orthophosphate (oPO4)")
+  rug(jitter(algae$oPO4), side = 2)
+  abline(h= mean(algae$oPO4, na.rm = T), lty = 2) #画mean的那条横线
+  
+#1.3 outlier observation detection
+  plot(algae$NH4, xlab = "")
+   abline(h = mean(algae$NH4, na.rm = T), lty = 1)
+   abline(h = mean(algae$NH4, na.rm = T)  sd(algae$NH4, na.rm = T),lty = 2)
+   abline(h = median(algae$NH4, na.rm = T), lty = 3)
+   identify(algae$NH4) # interactive click--shows the row number----interactive and allows the user to click on the plotted dots with the left mouse button.
+   
+#1.4 inspect the respective observations---show all the info in the clicked spots
+   plot(algae$NH4, xlab = "")
+     clicked.lines <- identify(algae$NH4)
+     algae[clicked.lines, ]
+     
+#row detecter
+     algae[!is.na(algae$NH4) & algae$NH4  19000,]
+     
+#1.5.1 conditional plot---plot by groups
+  library(lattice)
+     bwplot(size ~ a1, data=algae, ylab='River Size',xlab='Algal A1') #plot a1 for each value of size
+     
+#1.5.2 alternative plot by group--small dash--actual value,  big dash---quantile
+     library(Hmisc)
+      bwplot(size ~ a1, data=algae,panel=panel.bpplot,
+               probs=seq(.01,.49,by=.01), datadensity=TRUE,
+               ylab='River Size',xlab='Algal A1')
+#1.6 plot by group--cont data
+      #1.6.1 cata first--cut the cont data--number=4: cut into 4 grps; overlap=1/5: sets the overlap between the bins near their respective boundaries (this means that certain observations will be assigned to adjacent bins).
+      minO2 <- equal.count(
+                            na.omit(algae$mnO2),   # first: omit the NA
+                           number=4,overlap=1/5
+                           )
+      #1.6.2 another lettice function plot--a variable classed by two grps---grp1:season:the striped grp; grp2:mino2;variable:a3
+      stripplot(
+                season ~ a3|minO2,
+                data=algae[!is.na(algae$mnO2),]
+                )
+      
+####################################################################
+      
+# 2.missing value
+
+#2.1 Remove the cases with unknowns
+
+      nrow(algae[!complete.cases(algae),])  #na detector
+      
+      algae2 <- na.omit(algae) #delete the incomplete one
+      
+      apply(algae, 1, function(x) sum(is.na(x))) #detect how many nas for each observation---TRUE=1, FALSE=0
+      #apply: apply function to the data---
+          #format:
+              #apply(dataset, who to apply the func: row 1 column 2, function(x) the speciffic temp func)
+      
+      #detect the observation that has too many NA columns(by default is 20%)
+      install.packages("DMwR2")
+      install.packages("DMwR")
+      
+      library(DMwR2)
+      library(DMwR)
+      algae2 <- algae[-manyNAs(algae, 0.2),] 
+      
+      #manyNAs(dataset, over how many percentage of NA is shown(here 0.2=20%))
+      
+      #delete the observations that has too many NAs
+      algae2 <- algae[-manyNAs(algae), ]
+      
+      
+#2.2 Fill in the unknown values by exploring the correlations between variables---imputation
+
+      #2.2.1 centrality(central imputation)--large bias!!! but simple ----replace the missing value by mean(in normal distri) or median(if skewed)
+          #case by case
+          algae[48, "mxPH"] <- mean(algae$mxPH, na.rm = T) #notice na.rm
+          
+          #all imputation
+          algae[is.na(algae$Chla), "Chla"] <- median(algae$Chla, na.rm = T)
+          
+          #or--centralImputation func in book package---median for numeric & mode for nominal
+          algae <- algae[-manyNAs(algae), ]   #will lose info
+          algae <- centralImputation(algae)
+          
+          
+##############################!!!!!!!!!!!!RECOMMENDATION!!!!!!!!!!!!!##################################
+
+      #2.2.2.1 imputate the missing cont data by correlation and linear model---(correlation!!) 
+
+          #prefable--it use the highly related variable2(column2) to replace the missing value of variable1(column1)
+          
+          #step1)detect the highly related columns
+          
+          symnum(  #look at the legend below corr matrix---if cor 0-0.3 then legend=‘ ’; if 0.3-0.6 then legend=‘.’ ; if cor 0.6 BUT <0.8 then legend= ‘,’ ; if cor0.8 but <0.9 then legend =‘’ ; if cor 0.9 BUT <0.95 then legend=‘*’ ; if cor0.95 then legend=‘B’ 1
+            cor(
+              algae[, 4:18],             #start from column 4 cuz the first 3 are nominal
+              use = "complete.obs"            #use = "complete.obs" tells R to disregard observations with NA values in this calculation. 
+              ) 
+            )
+      
+          #in this case: NO3 & NH4: cor0.6 but <0.8 cuz legend=; cor of PO4 & oPO4 belong to (0.9,0.95) cuz legend = *
+          
+          #meaning:
+            #1.oPO4 & PO4 are highly related(0.9)---we can use them to replace each other
+          
+          #step 2)know the association between the two related one--assume missing PO4(PO4 is the one we wanna imputate)
+           data(algae)
+           algae <- algae[-manyNAs(algae), ] #delete the observations with 20% NAs; many NAs comes from book function
+           lm(PO4 ~ oPO4, data = algae)  #lm(y~x,data=dataset)
+
+          #step 3)replacing
+           data(algae)
+            algae <- algae[-manyNAs(algae), ]  #delete NA20%'s observations
+            
+            #replace missing PO4 by oP(calculated from the linear model in step2)
+            
+            fillPO4 <- function(oP) {   #build a function that creat the new imputated missing PO4   
+              if (is.na(oP))    #if oP is missing too, we can do nothing to imputate PO4
+                return(NA)
+              else return(
+                42.897 + 1.293 * oP  #equation from step2
+                ) 
+            }
+            
+            algae[is.na(algae$PO4), "PO4"] <- sapply(   #replace the missing PO4(is.na(PO4)) by new PO4 imputated from oPO4
+                                                  algae[is.na(algae$PO4),"oPO4"],   #this is a vector
+                                                  fillPO4  #this is the function
+                                                  )           
+                #format of sapply: sapply(vector, function)---apply the func into the vector--notes:no func(x) is needed, just func
+                #ddx sapply & apply---sapply: func on vector; apply: func on the whole row or column
+                      #Review:
+                          #apply: apply function to the data---
+                              #format:
+                                  #apply(dataset, who to apply the func: row 1 column 2, function(x) the speciffic temp func)
+           
+          #2.2.2.2 imputate the missing cata data
+            #when:small dataset with little nominal variables
+            #step1 : detect diff character in each grps
+            
+            #classed by single grp
+            histogram(~mxPH | size,data=algae) 
+                #size is the cata grp ; ~mxPH is the cont data
+                #result: in grp large, some small mxPH is missing
+            
+            #classed by multipl grps
+              #method 1:histo---preferable
+                  histogram(~mxPH | size * speed, data = algae)
+                    #result: no info of mxPH in grp with low speed and small size
+                  
+              #method 2: strip in lattece---lose freq info
+                  stripplot(size ~ mxPH | speed, data = algae, jitter = T)
+                    #perform a small random permutation of the values in the Y-direction to avoid plotting observations with the same values over each other, thus losing some information on the concentration of observations with some particular value.
+
+                  
+
+#2.3 Fill in the unknown values by exploring the similarity between cases---prefable
+                  
+      #when: there's too many NAs
+      
+      #assumption: The approach described in this section assumes that if two water samples
+                 # are similar, and one of them has an unknown value in some variable, there is a
+                  # high probability that this value is similar to the value of the other sample.
+                    
+                  
+      #define similarity:
+                  # Euclidean distance=d(x, y) =sqrt(sum((xi − yi)^2))
+      #choose the most similar cases, eg. top 10
+      #how to use--what to imputate?
+            #method1:median for cont or mode for cata
+                  algae <- knnImputation(algae, k = 10, meth = "median")
+            #method2: weighted average
+                  #weights: Gaussian kernel function: w(d) = e^(−d)
+                  # knnImputation()  in DMwR---variant of the above , P62 in the data mining with R book
+                  algae <- knnImputation(algae, k = 10)
+                  
+#2.4 Use tools that are able to handle these values
+                  
+                  
+                  
+##########################3.start prediction################################################
+
+#clean data
+                   data(algae)
+                   algae <- algae[-manyNAs(algae), ]
+                   clean.algae <- knnImputation(algae, k = 10)
+                   
+#regression
+    #3.1 multiple linear regression model
+        lm.a1 <- lm(a1 ~ ., data = clean.algae[, 1:12]) 
+          #format: lm(y~x1+x2+...xn,data=datatset)
+                  #y~.(dot) means use all the rest of the variables as predictors
+        summary(lm.a1)
+          #get the coefficients and parameters
