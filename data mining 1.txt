@@ -1,4 +1,5 @@
 ﻿#ch1 algae exercise
+head(algae)
 
 hist(algae$mxPH, prob = T)
 #1. basic exploration——function——summary、hist、boxplot
@@ -9,7 +10,7 @@ hist(algae$mxPH, prob = T)
   hist(algae$mxPH, prob=T, xlab='',
         main='Histogram of maximum pH value',ylim=0:1)
     lines(density(algae$mxPH,na.rm=T)) #画分布曲线
-    rug(jitter(algae$mxPH)) # 底下那个竖条条---看outlier——plots the real values of the variable near the X-axis, thus allowing easy spotting of outliers.12 For instance, we can observe that there are two values significantly smaller than all others.
+    rug(jitter(algae$mxPH)) # 底下那个竖条条---看outlier——
   qqPlot(algae$mxPH,main='Normal QQ plot of maximum pH')
  par(mfrow=c(1,1)) #把画布调回来
  
